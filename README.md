@@ -1,77 +1,234 @@
-# Банковская система
+# go-2024-2025-2
+Итоговый проект «Разработка банковской системы» по дисциплине "Язык программирования GO". 2-й семестр 1-го курса МИФИ ИИКС РПО (2024-2025 уч. г).
 
-REST API для банковского сервиса на Go.
+## Описание проекта
+
+Данный сервис представляет собой REST API для управления банковскими счетами, картами и кредитами. Подробное описание задания находится в файле [task.md](task.md).
 
 ## Требования
 
 - Go 1.23+
-- Docker и Docker Compose
-- PostgreSQL 17
+- PostgreSQL 17+
+- Установленные переменные окружения (см. Настройка)
 
 ## Установка и запуск
 
 1. Клонируйте репозиторий:
 ```bash
 git clone <repository-url>
+cd go-2024-2025-2
 ```
 
-2. Запустите базу данных:
-```bash
-docker-compose up -d
-```
-
-3. Установите зависимости:
+2. Установите зависимости:
 ```bash
 go mod download
 ```
 
-4. Настройте переменные окружения:
+3. Настройте переменные окружения:
 ```bash
-cp .env.example .env
-# Отредактируйте .env файл под свои нужды
+export DB_HOST=localhost
+export DB_PORT=5432
+export DB_USER=postgres
+export DB_PASSWORD=your_password
+export DB_NAME=bank
+export JWT_SECRET=your_jwt_secret
+export SMTP_HOST=smtp.example.com
+export SMTP_PORT=587
+export SMTP_USER=your_email@example.com
+export SMTP_PASSWORD=your_smtp_password
 ```
 
-5. Запустите приложение:
+4. Запустите базу данных:
+```bash
+docker-compose up -d
+```
+
+5. Сгенерируйте PGP ключи:
+```bash
+go run scripts/generate_key.go
+```
+
+6. Запустите сервис:
 ```bash
 go run cmd/api/main.go
 ```
+
+Сервис будет доступен по адресу `http://localhost:8080`
+
+## Использование API
+
+### Аутентификация
+
+- **Регистрация**  
+  `POST /api/register`  
+  Тело запроса:
+  ```json
+  {
+    "username": "имя_пользователя",
+    "email": "email@example.com",
+    "password": "пароль"
+  }
+  ```
+
+- **Вход**  
+  `POST /api/login`  
+  Тело запроса:
+  ```json
+  {
+    "email": "email@example.com",
+    "password": "пароль"
+  }
+  ```
+  Возвращает JWT токен для авторизованных запросов.
+
+### Управление счетами
+
+- **Создать счет**  
+  `POST /api/accounts/create`  
+  Тело запроса:
+  ```json
+  {
+    "user_id": 1,
+    "type": "DEBIT"
+  }
+  ```
+
+- **Получить список счетов**  
+  `GET /api/accounts/list?user_id=1`
+
+- **Пополнить счет**  
+  `POST /api/accounts/deposit`  
+  Тело запроса:
+  ```json
+  {
+    "account_id": 1,
+    "amount": 1000.00
+  }
+  ```
+
+- **Снять средства**  
+  `POST /api/accounts/withdraw`  
+  Тело запроса:
+  ```json
+  {
+    "account_id": 1,
+    "amount": 500.00
+  }
+  ```
+
+- **Перевод между счетами**  
+  `POST /api/accounts/transfer`  
+  Тело запроса:
+  ```json
+  {
+    "from_account_id": 1,
+    "to_account_id": 2,
+    "amount": 300.00
+  }
+  ```
+
+### Управление картами
+
+- **Создать виртуальную карту**  
+  `POST /api/cards/create`  
+  Тело запроса:
+  ```json
+  {
+    "account_id": 1
+  }
+  ```
+
+- **Получить список карт**  
+  `GET /api/cards/list?user_id=1`
+
+- **Получить информацию о карте**  
+  `GET /api/cards/get?card_id=1`
+
+### Кредиты
+
+- **Оформить кредит**  
+  `POST /api/credits/create`  
+  Тело запроса:
+  ```json
+  {
+    "account_id": 1,
+    "amount": 10000.00,
+    "term": 12,
+    "rate": 15.5
+  }
+  ```
+
+- **Получить список кредитов**  
+  `GET /api/credits/list`
+
+- **Получить информацию о кредите**  
+  `GET /api/credits/get?id=1`
+
+- **Получить график платежей**  
+  `GET /api/credits/schedule?id=1`
+
+- **Создать платеж**  
+  `POST /api/payments/create`  
+  Тело запроса:
+  ```json
+  {
+    "credit_id": 1,
+    "amount": 1000.00,
+    "due_date": "2024-05-01T00:00:00Z"
+  }
+  ```
+
+- **Обработать платеж**  
+  `POST /api/payments/process?payment_id=1`
+
+- **Получить платежи по кредиту**  
+  `GET /api/payments/list?credit_id=1`
+
+- **Получить ожидающие платежи**  
+  `GET /api/payments/pending`
+
+## Особенности реализации
+
+### Безопасность
+- Пароли хешируются с помощью bcrypt
+- Данные карт шифруются с помощью PGP
+- CVV хешируется с помощью bcrypt
+- Все запросы защищены JWT-аутентификацией
+- Используются параметризованные SQL-запросы
+
+### Интеграции
+- SMTP для отправки уведомлений
+- SOAP API ЦБ РФ для получения ключевой ставки
+- Автоматическое списание платежей по кредитам
+
+### Логирование
+Логи сохраняются в файл `app.log` и выводятся в консоль. Используется logrus с настройками:
+- Уровень логирования: Info
+- Формат: JSON
+- Выход: файл и консоль
 
 ## Структура проекта
 
 ```
 .
 ├── cmd/
-│   └── api/           # Точка входа приложения
+│   └── api/
+│       └── main.go
 ├── internal/
-│   ├── models/        # Модели данных
-│   ├── repositories/  # Работа с БД
-│   ├── services/      # Бизнес-логика
-│   ├── handlers/      # Обработчики HTTP
-│   └── middleware/    # Middleware
-├── migrations/        # SQL миграции
-├── config/           # Конфигурация
-└── docker-compose.yml # Конфигурация Docker
+│   ├── handlers/
+│   ├── models/
+│   ├── repositories/
+│   ├── services/
+│   └── utils/
+├── migrations/
+├── scripts/
+└── README.md
 ```
 
-## API Endpoints
+## Технические детали
 
-### Публичные
-- POST /register - Регистрация пользователя
-- POST /login - Аутентификация
-
-### Защищенные
-- POST /accounts - Создание счета
-- POST /cards - Выпуск карты
-- POST /transfer - Перевод средств
-- GET /analytics - Получение аналитики
-- GET /credits/{creditId}/schedule - График платежей
-- GET /accounts/{accountId}/predict - Прогноз баланса
-
-## Технологии
-
-- Go 1.23
-- PostgreSQL
-- JWT для аутентификации
-- PGP для шифрования
-- SMTP для уведомлений
-- SOAP для интеграции с ЦБ РФ
+- Используется PostgreSQL с расширением pgcrypto
+- Реализован алгоритм Луна для генерации номеров карт
+- Расчет аннуитетных платежей для кредитов
+- Транзакции для обеспечения атомарности операций
+- Middleware для аутентификации и логирования
