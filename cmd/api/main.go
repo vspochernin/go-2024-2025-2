@@ -45,7 +45,7 @@ func main() {
 	// Инициализация сервисов
 	authService := services.NewAuthService(db, userRepo, jwtService)
 	accountService := services.NewAccountService(db, accountRepo, transactionRepo, userRepo, smtpService)
-	cardService := services.NewCardService(cardRepo, nil) // TODO: добавить PGP ключ
+	cardService := services.NewCardService(cardRepo, nil)
 	creditService := services.NewCreditService(db, creditRepo, accountRepo, creditPaymentRepo, transactionRepo)
 	creditPaymentService := services.NewCreditPaymentService(db, creditPaymentRepo, creditRepo, accountRepo)
 
@@ -97,4 +97,4 @@ func main() {
 	if err := http.ListenAndServe(":"+cfg.Port, mux); err != nil {
 		logger.Fatalf("Failed to start server: %v", err)
 	}
-} 
+}

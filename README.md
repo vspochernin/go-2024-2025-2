@@ -9,22 +9,22 @@
 
 - Go 1.23+
 - PostgreSQL 17+
-- Установленные переменные окружения (см. Настройка)
+- Установленные переменные окружения (см. далее)
 
 ## Установка и запуск
 
-1. Клонируйте репозиторий:
+1. Клонирование репозитория:
 ```bash
 git clone <repository-url>
 cd go-2024-2025-2
 ```
 
-2. Установите зависимости:
+2. Установка зависимостей:
 ```bash
 go mod download
 ```
 
-3. Настройте переменные окружения:
+3. Настройка переменных окружения:
 ```bash
 export DB_HOST=localhost
 export DB_PORT=5432
@@ -38,17 +38,17 @@ export SMTP_USER=your_email@example.com
 export SMTP_PASSWORD=your_smtp_password
 ```
 
-4. Запустите базу данных:
+4. Запуск тестовой базы данных (при необходимости):
 ```bash
 docker-compose up -d
 ```
 
-5. Сгенерируйте PGP ключи:
+5. Генерация PGP ключей:
 ```bash
 go run scripts/generate_key.go
 ```
 
-6. Запустите сервис:
+6. Запуск сервиса:
 ```bash
 go run cmd/api/main.go
 ```
