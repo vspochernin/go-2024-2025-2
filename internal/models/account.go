@@ -1,28 +1,30 @@
 package models
 
 import (
+	"database/sql"
 	"time"
 )
 
 type Account struct {
-	ID        int       `json:"id"`
-	UserID    int       `json:"user_id"`
-	Balance   float64   `json:"balance"`
-	Currency  string    `json:"currency"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID        int64          `json:"id"`
+	UserID    int64          `json:"user_id"`
+	Balance   float64        `json:"balance"`
+	Type      string         `json:"type"` // checking, savings, credit
+	IsActive  bool           `json:"is_active"`
+	CreatedAt sql.NullTime   `json:"created_at"`
+	UpdatedAt sql.NullTime   `json:"updated_at"`
 }
 
 type AccountCreateRequest struct {
-	UserID   int     `json:"user_id" validate:"required"`
-	Currency string  `json:"currency" validate:"required,len=3"`
+	UserID int64  `json:"user_id" validate:"required"`
+	Type   string `json:"type" validate:"required,oneof=checking savings credit"`
 }
 
 type AccountResponse struct {
-	ID        int       `json:"id"`
-	UserID    int       `json:"user_id"`
+	ID        int64     `json:"id"`
+	UserID    int64     `json:"user_id"`
 	Balance   float64   `json:"balance"`
-	Currency  string    `json:"currency"`
+	Type      string    `json:"type"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
@@ -36,8 +38,8 @@ func (a *AccountCreateRequest) Validate() error {
 	if a.UserID <= 0 {
 		return ErrInvalidUserID
 	}
-	if a.Currency != "RUB" { // По условию проекта поддерживаем только RUB
-		return ErrInvalidCurrency
+	if a.Type != "checking" && a.Type != "savings" && a.Type != "credit" {
+		return ErrInvalidAccountType
 	}
 	return nil
 }
@@ -57,7 +59,7 @@ func (a *Account) ToResponse() AccountResponse {
 		ID:        a.ID,
 		UserID:    a.UserID,
 		Balance:   a.Balance,
-		Currency:  a.Currency,
-		CreatedAt: a.CreatedAt,
+		Type:      a.Type,
+		CreatedAt: a.CreatedAt.Time,
 	}
 } 

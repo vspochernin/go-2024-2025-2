@@ -307,4 +307,8 @@ Temporary Items
 .history
 .ionide
 
+# PGP keys
+key.pem
+key.priv.pem
+
 # End of https://www.toptal.com/developers/gitignore/api/intellij,intellij+all,intellij+iml,go,macos,visualstudiocode
