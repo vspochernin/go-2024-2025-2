@@ -8,7 +8,8 @@ type User struct {
 	ID           int       `json:"id"`
 	Username     string    `json:"username" validate:"required"`
 	Email        string    `json:"email" validate:"required,email"`
-	PasswordHash string    `json:"-"` // Не сериализуем хеш пароля
+	Password     string    `json:"password"` // Только для регистрации
+	PasswordHash string    `json:"-"`        // Хеш пароля
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }

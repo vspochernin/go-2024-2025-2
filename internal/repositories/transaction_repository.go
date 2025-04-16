@@ -2,65 +2,36 @@ package repositories
 
 import (
 	"banksystem/internal/models"
+	"context"
 	"database/sql"
-	"time"
 )
 
 type TransactionRepository struct {
-	*BaseRepository
+	db *sql.DB
 }
 
 func NewTransactionRepository(db *sql.DB) *TransactionRepository {
-	return &TransactionRepository{
-		BaseRepository: NewBaseRepository(db),
-	}
+	return &TransactionRepository{db: db}
 }
 
-func (r *TransactionRepository) Create(transaction *models.Transaction) error {
+func (r *TransactionRepository) Create(ctx context.Context, tx *sql.Tx, transaction *models.Transaction) (*models.Transaction, error) {
 	query := `
-		INSERT INTO transactions (from_account_id, to_account_id, amount, type, status, created_at)
+		INSERT INTO transactions (account_id, type, amount, status, to_account_id, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id
+		RETURNING id, created_at
 	`
 
-	err := r.db.QueryRow(
+	err := tx.QueryRowContext(
+		ctx,
 		query,
-		transaction.FromAccountID,
-		transaction.ToAccountID,
-		transaction.Amount,
+		transaction.AccountID,
 		transaction.Type,
+		transaction.Amount,
 		transaction.Status,
-		time.Now(),
-	).Scan(&transaction.ID)
+		transaction.ToAccountID,
+		transaction.CreatedAt,
+	).Scan(&transaction.ID, &transaction.CreatedAt)
 
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (r *TransactionRepository) GetByID(id int) (*models.Transaction, error) {
-	query := `
-		SELECT id, from_account_id, to_account_id, amount, type, status, created_at
-		FROM transactions
-		WHERE id = $1
-	`
-
-	transaction := &models.Transaction{}
-	err := r.db.QueryRow(query, id).Scan(
-		&transaction.ID,
-		&transaction.FromAccountID,
-		&transaction.ToAccountID,
-		&transaction.Amount,
-		&transaction.Type,
-		&transaction.Status,
-		&transaction.CreatedAt,
-	)
-
-	if err == sql.ErrNoRows {
-		return nil, ErrNotFound
-	}
 	if err != nil {
 		return nil, err
 	}
@@ -68,15 +39,40 @@ func (r *TransactionRepository) GetByID(id int) (*models.Transaction, error) {
 	return transaction, nil
 }
 
-func (r *TransactionRepository) GetByAccountID(accountID int) ([]*models.Transaction, error) {
+func (r *TransactionRepository) GetByID(ctx context.Context, id int64) (*models.Transaction, error) {
 	query := `
-		SELECT id, from_account_id, to_account_id, amount, type, status, created_at
+		SELECT id, account_id, type, amount, status, to_account_id, created_at
 		FROM transactions
-		WHERE from_account_id = $1 OR to_account_id = $1
+		WHERE id = $1
+	`
+
+	transaction := &models.Transaction{}
+	err := r.db.QueryRowContext(ctx, query, id).Scan(
+		&transaction.ID,
+		&transaction.AccountID,
+		&transaction.Type,
+		&transaction.Amount,
+		&transaction.Status,
+		&transaction.ToAccountID,
+		&transaction.CreatedAt,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+
+	return transaction, err
+}
+
+func (r *TransactionRepository) GetByAccountID(ctx context.Context, accountID int64) ([]*models.Transaction, error) {
+	query := `
+		SELECT id, account_id, type, amount, status, to_account_id, created_at
+		FROM transactions
+		WHERE account_id = $1
 		ORDER BY created_at DESC
 	`
 
-	rows, err := r.db.Query(query, accountID)
+	rows, err := r.db.QueryContext(ctx, query, accountID)
 	if err != nil {
 		return nil, err
 	}
@@ -87,11 +83,11 @@ func (r *TransactionRepository) GetByAccountID(accountID int) ([]*models.Transac
 		transaction := &models.Transaction{}
 		err := rows.Scan(
 			&transaction.ID,
-			&transaction.FromAccountID,
-			&transaction.ToAccountID,
-			&transaction.Amount,
+			&transaction.AccountID,
 			&transaction.Type,
+			&transaction.Amount,
 			&transaction.Status,
+			&transaction.ToAccountID,
 			&transaction.CreatedAt,
 		)
 		if err != nil {
@@ -100,20 +96,16 @@ func (r *TransactionRepository) GetByAccountID(accountID int) ([]*models.Transac
 		transactions = append(transactions, transaction)
 	}
 
-	return transactions, nil
+	return transactions, rows.Err()
 }
 
-func (r *TransactionRepository) UpdateStatus(id int, status string) error {
+func (r *TransactionRepository) UpdateStatus(ctx context.Context, tx *sql.Tx, id int64, status string) error {
 	query := `
 		UPDATE transactions
 		SET status = $1
 		WHERE id = $2
 	`
 
-	_, err := r.db.Exec(query, status, id)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	_, err := tx.ExecContext(ctx, query, status, id)
+	return err
 } 

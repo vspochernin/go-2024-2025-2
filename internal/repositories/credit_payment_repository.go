@@ -2,79 +2,67 @@ package repositories
 
 import (
 	"banksystem/internal/models"
+	"context"
 	"database/sql"
 	"time"
 )
 
 type CreditPaymentRepository struct {
-	*BaseRepository
+	db *sql.DB
 }
 
 func NewCreditPaymentRepository(db *sql.DB) *CreditPaymentRepository {
-	return &CreditPaymentRepository{
-		BaseRepository: NewBaseRepository(db),
-	}
+	return &CreditPaymentRepository{db: db}
 }
 
-func (r *CreditPaymentRepository) Create(payment *models.CreditPayment) error {
+func (r *CreditPaymentRepository) Create(ctx context.Context, payment *models.CreditPayment) error {
 	query := `
-		INSERT INTO credit_payments (credit_id, amount, payment_date, status, created_at)
-		VALUES ($1, $2, $3, $4, $5)
-		RETURNING id
+		INSERT INTO credit_payments (credit_id, amount, status, due_date)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id, created_at
 	`
 
-	err := r.db.QueryRow(
-		query,
+	return r.db.QueryRowContext(ctx, query,
 		payment.CreditID,
 		payment.Amount,
-		payment.PaymentDate,
 		payment.Status,
-		time.Now(),
-	).Scan(&payment.ID)
-
-	if err != nil {
-		return err
-	}
-
-	return nil
+		payment.DueDate,
+	).Scan(&payment.ID, &payment.CreatedAt)
 }
 
-func (r *CreditPaymentRepository) GetByID(id int) (*models.CreditPayment, error) {
+func (r *CreditPaymentRepository) GetByID(ctx context.Context, id int64) (*models.CreditPayment, error) {
 	query := `
-		SELECT id, credit_id, amount, payment_date, status, created_at
+		SELECT id, credit_id, amount, status, due_date, created_at
 		FROM credit_payments
 		WHERE id = $1
 	`
 
 	payment := &models.CreditPayment{}
-	err := r.db.QueryRow(query, id).Scan(
+	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&payment.ID,
 		&payment.CreditID,
 		&payment.Amount,
-		&payment.PaymentDate,
 		&payment.Status,
+		&payment.DueDate,
 		&payment.CreatedAt,
 	)
 
 	if err == sql.ErrNoRows {
-		return nil, ErrNotFound
-	}
-	if err != nil {
-		return nil, err
+		return nil, nil
 	}
 
-	return payment, nil
+	return payment, err
 }
 
-func (r *CreditPaymentRepository) GetByCreditID(creditID int) ([]*models.CreditPayment, error) {
+func (r *CreditPaymentRepository) GetByCreditID(ctx context.Context, creditID int64) ([]*models.CreditPayment, error) {
 	query := `
-		SELECT id, credit_id, amount, payment_date, status, created_at
+		SELECT id, credit_id, amount, status, due_date, created_at
 		FROM credit_payments
 		WHERE credit_id = $1
-		ORDER BY payment_date ASC
+		ORDER BY due_date
 	`
 
-	rows, err := r.db.Query(query, creditID)
+	rows, err := r.db.QueryContext(ctx, query, creditID)
 	if err != nil {
 		return nil, err
 	}
@@ -87,8 +75,8 @@ func (r *CreditPaymentRepository) GetByCreditID(creditID int) ([]*models.CreditP
 			&payment.ID,
 			&payment.CreditID,
 			&payment.Amount,
-			&payment.PaymentDate,
 			&payment.Status,
+			&payment.DueDate,
 			&payment.CreatedAt,
 		)
 		if err != nil {
@@ -100,52 +88,47 @@ func (r *CreditPaymentRepository) GetByCreditID(creditID int) ([]*models.CreditP
 	return payments, nil
 }
 
-func (r *CreditPaymentRepository) UpdateStatus(id int, status string) error {
+func (r *CreditPaymentRepository) GetPending(ctx context.Context) ([]*models.CreditPayment, error) {
+	query := `
+		SELECT id, credit_id, amount, status, due_date, created_at
+		FROM credit_payments
+		WHERE status = 'pending' AND due_date <= $1
+		ORDER BY due_date
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, time.Now())
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var payments []*models.CreditPayment
+	for rows.Next() {
+		payment := &models.CreditPayment{}
+		err := rows.Scan(
+			&payment.ID,
+			&payment.CreditID,
+			&payment.Amount,
+			&payment.Status,
+			&payment.DueDate,
+			&payment.CreatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		payments = append(payments, payment)
+	}
+
+	return payments, nil
+}
+
+func (r *CreditPaymentRepository) UpdateStatus(ctx context.Context, id int64, status string) error {
 	query := `
 		UPDATE credit_payments
 		SET status = $1
 		WHERE id = $2
 	`
 
-	_, err := r.db.Exec(query, status, id)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (r *CreditPaymentRepository) GetPendingPayments() ([]*models.CreditPayment, error) {
-	query := `
-		SELECT id, credit_id, amount, payment_date, status, created_at
-		FROM credit_payments
-		WHERE status = 'pending'
-		AND payment_date <= $1
-		ORDER BY payment_date ASC
-	`
-
-	rows, err := r.db.Query(query, time.Now())
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var payments []*models.CreditPayment
-	for rows.Next() {
-		payment := &models.CreditPayment{}
-		err := rows.Scan(
-			&payment.ID,
-			&payment.CreditID,
-			&payment.Amount,
-			&payment.PaymentDate,
-			&payment.Status,
-			&payment.CreatedAt,
-		)
-		if err != nil {
-			return nil, err
-		}
-		payments = append(payments, payment)
-	}
-
-	return payments, nil
+	_, err := r.db.ExecContext(ctx, query, status, id)
+	return err
 } 
