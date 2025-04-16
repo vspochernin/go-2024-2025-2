@@ -35,9 +35,11 @@ CREATE TABLE IF NOT EXISTS transactions (
     id SERIAL PRIMARY KEY,
     from_account_id INTEGER REFERENCES accounts(id),
     to_account_id INTEGER REFERENCES accounts(id),
+    account_id INTEGER REFERENCES accounts(id), -- Для депозитов и снятий
     amount DECIMAL(15,2) NOT NULL,
     type VARCHAR(50) NOT NULL,
     status VARCHAR(50) NOT NULL,
+    description TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
