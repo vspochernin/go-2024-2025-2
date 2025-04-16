@@ -88,13 +88,12 @@ go run cmd/api/main.go
   Тело запроса:
   ```json
   {
-    "user_id": 1,
     "type": "DEBIT"
   }
   ```
 
 - **Получить список счетов**  
-  `GET /api/accounts/list?user_id=1`
+  `GET /api/accounts/list`
 
 - **Пополнить счет**  
   `POST /api/accounts/deposit`  
@@ -139,7 +138,7 @@ go run cmd/api/main.go
   ```
 
 - **Получить список карт**  
-  `GET /api/cards/list?user_id=1`
+  `GET /api/cards/list`
 
 - **Получить информацию о карте**  
   `GET /api/cards/get?card_id=1`
